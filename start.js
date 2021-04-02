@@ -8,7 +8,7 @@ const serveIndex = require('serve-index')
 const cors = require('cors')
 const app = express()
 const root = 'src'
-const port = 1234
+const port = 3333
 
 app.use(cors())
 app.use(express.static(root))
