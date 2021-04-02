@@ -20,8 +20,6 @@ app.listen(port, () => {
     console.log('Custom room scripts served at:\n')
     console.log(`> Local URL:\thttp://localhost:${port}/rooms`)
     console.log(`> Public URL:\t${url}/rooms`)
-    console.log(
-      '\nNavigate to a room script and paste its public URL in your Hubs room settings'
-    )
+    console.log('\nNavigate to a room script and paste its public URL in your Hubs room settings')
   })
 })
