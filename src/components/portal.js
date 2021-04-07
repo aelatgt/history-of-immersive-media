@@ -86,7 +86,7 @@ AFRAME.registerComponent('portal', {
 
     // TODO: Replace this visualization with camera and shader setup
     // Create render target (contains cube texture) and cube camera
-    this.cubeRenderTarget = new THREE.WebGLCubeRenderTarget(1024)
+    this.cubeRenderTarget = new THREE.WebGLRenderTargetCube(1024)
     this.cubeCamera = new THREE.CubeCamera(1, 100000, this.cubeRenderTarget)
 
     // Attach cube camera to object
@@ -95,9 +95,21 @@ AFRAME.registerComponent('portal', {
     // Flag that we need to update the cube camera
     this.needsUpdate = true
 
+    // Create material
     const material = new THREE.ShaderMaterial(PortalShader)
     material.uniforms.cubeMap.value = this.cubeRenderTarget.texture
-    this.el.getOrCreateObject3D('mesh').material = material
+
+    // getOrCreateObject3D is deprecated, so below is commented out
+    //this.el.getOrCreateObject3D('mesh').material = material
+
+    // Create geometry.
+    this.geometry = new THREE.SphereBufferGeometry(10, 10, 0);
+
+    // Create mesh.
+    this.mesh = new THREE.Mesh(this.geometry, material);
+
+    // Set mesh on material
+    this.el.setObject3D("mesh", this.mesh)
 
     // TO DO: Make this pretty
     this.ring = document.createElement('a-sphere')
@@ -111,10 +123,20 @@ AFRAME.registerComponent('portal', {
     // The user's avatar always first in the list of "networked-avatar"s regardless of if
     // they were the first ones to join the Hubs room
     const activeAvatar = document.querySelector("[networked-avatar]")
+    // console.log(activeAvatar)
     this.avatarPos = activeAvatar.object3D.getWorldPosition();
+
+    // This is just to see if I'm even loading the portal correctly
+    console.log("Here I am in the portal init!")
+
 
   },
   tick: async function () {
+    // Need to query AFTER avatar is networked; the below query statement needs
+    // to be removed before the final version is implemented
+    const activeAvatar = document.querySelector("[networked-avatar]")
+    this.avatarPos = activeAvatar.object3D.getWorldPosition();
+
     // On the first frame only, update the camera view AND find the matched destination portal
     if (this.needsUpdate){
       // Make sure cubeCamera position to match that of portals
@@ -122,7 +144,6 @@ AFRAME.registerComponent('portal', {
 
       this.cubeCamera.update( this.el.sceneEl.renderer, this.el.sceneEl.object3D )
       this.ring.setAttribute('visible', true)
-      this.findMatchedPortal()
 
       this.needsUpdate = false
     }
@@ -136,6 +157,7 @@ AFRAME.registerComponent('portal', {
       }
     }
   },
+
   getOther: function () {
     return new Promise((resolve) => {
       const portals = Array.from(document.querySelectorAll(`[portal]`))
