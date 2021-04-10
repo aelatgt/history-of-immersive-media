@@ -12,43 +12,15 @@
  * you could name them "portal-to__panorama" and "portal-from__panorama"
  */
 
+import vertexShader from '../shaders/portal.vert.js'
+import fragmentShader from '../shaders/portal.frag.js'
+import snoise from '../shaders/snoise.js'
+
 const worldPos = new THREE.Vector3()
 const worldCameraPos = new THREE.Vector3()
 const worldDir = new THREE.Vector3()
 const worldQuat = new THREE.Quaternion()
 const mat4 = new THREE.Matrix4()
-
-const PortalShader = {
-  uniforms: {
-    cubeMap: { value: null },
-  },
-  vertexShader: `
-    varying vec3 vCameraPosition;
-    varying vec3 vPosition;
-    varying vec3 vNormal;
-
-    void main() {
-      vec4 worldPosH = modelMatrix * vec4(position, 1);
-      vCameraPosition = cameraPosition;
-      vPosition = worldPosH.xyz / worldPosH.w;
-      vNormal = normal;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1);
-    }
-  `,
-  fragmentShader: `
-    uniform samplerCube cubeMap;
-
-    varying vec3 vCameraPosition;
-    varying vec3 vPosition;
-    varying vec3 vNormal;
-
-    void main() {
-      vec3 dir = normalize(vPosition - vCameraPosition);
-      dir = mix(dir, vNormal, 0.3);
-      gl_FragColor = textureCube(cubeMap, dir);
-    }
-  `,
-}
 
 AFRAME.registerSystem('portal', {
   dependencies: ['fader-plus'],
@@ -81,35 +53,42 @@ AFRAME.registerComponent('portal', {
   init: async function () {
     this.system = APP.scene.systems.portal // A-Frame is supposed to do this by default but doesn't?
     this.group = this.data.group ?? this.parseSpokeName()
-    this.material = new THREE.MeshStandardMaterial({
-      metalness: 1,
-      roughness: 0,
+    this.material = new THREE.ShaderMaterial({
+      transparent: true,
+      uniforms: {
+        cubeMap: { value: null },
+        time: { value: 0 },
+        radius: { value: 0 },
+      },
+      vertexShader,
+      fragmentShader: `
+        ${snoise}
+        ${fragmentShader}
+      `,
+    })
+    this.el.setAttribute('animation__portal', {
+      property: 'components.portal.material.uniforms.radius.value',
+      dur: 700,
+      easing: 'easeInOutCubic',
     })
     this.other = await this.getOther()
 
     this.cubeCamera = new THREE.CubeCamera(1, 100000, 1024)
-
-    // Attach cube camera to object
+    this.cubeCamera.rotateY(Math.PI) // Face forwards
     this.el.object3D.add(this.cubeCamera)
+    this.other.components.portal.material.uniforms.cubeMap.value = this.cubeCamera.renderTarget.texture
 
-    // Create material
-    this.other.components.portal.material.envMap = this.cubeCamera.renderTarget.texture
-    this.other.components.portal.material.needsUpdate = true
+    const geometry = new THREE.PlaneBufferGeometry(2, 3)
+    this.mesh = new THREE.Mesh(geometry, this.material)
+    this.el.setObject3D('mesh', this.mesh)
 
     this.el.sceneEl.addEventListener('model-loaded', () => {
       this.cubeCamera.update(this.el.sceneEl.renderer, this.el.sceneEl.object3D)
+      this.other.components.portal.open()
     })
-
-    // Create geometry.
-    const geometry = new THREE.SphereBufferGeometry(1, 18, 36)
-
-    // Create mesh.
-    this.mesh = new THREE.Mesh(geometry, this.material)
-
-    // Set mesh on material
-    this.el.setObject3D('mesh', this.mesh)
   },
-  tick: function () {
+  tick: function (time) {
+    this.material.uniforms.time.value = time / 1000
     if (this.other && !this.system.teleporting) {
       this.el.object3D.getWorldPosition(worldPos)
       this.el.sceneEl.camera.getWorldPosition(worldCameraPos)
@@ -138,5 +117,17 @@ AFRAME.registerComponent('portal', {
     const spokeName = this.el.parentEl.parentEl.className
     const group = spokeName.match(/(?:.*__)?(.*)/)[1]
     return group
+  },
+  setRadius(val) {
+    this.el.setAttribute('animation__portal', {
+      from: this.material.uniforms.radius.value,
+      to: val,
+    })
+  },
+  open() {
+    this.setRadius(1)
+  },
+  close() {
+    this.setRadius(0)
   },
 })
