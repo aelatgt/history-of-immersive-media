@@ -2,15 +2,15 @@ const glsl = `
 uniform samplerCube cubeMap;
 uniform float time;
 uniform float radius;
+uniform vec3 ringColor;
 
 varying vec2 vUv;
 varying vec3 vRay;
 varying vec3 vNormal;
 
-#define RING_COLOR vec3(0.1, 0.6, 0.9)
-#define RING_WIDTH 0.08
+#define RING_WIDTH 0.1
 #define RING_HARD_OUTER 0.01
-#define RING_HARD_INNER 0.05
+#define RING_HARD_INNER 0.08
 #define forward vec3(0.0, 0.0, 1.0)
 
 void main() {
@@ -30,7 +30,7 @@ void main() {
   vec3 ray = mix(vRay, tangentOutward, distortion);
   vec4 texel = textureCube(cubeMap, ray);
   vec3 centerLayer = texel.rgb * maskInner;
-  vec3 ringLayer = RING_COLOR * (1. - maskInner);
+  vec3 ringLayer = ringColor * (1. - maskInner);
   vec3 composite = centerLayer + ringLayer;
 
   gl_FragColor = vec4(composite, (maskOuter - maskInner) + maskInner * directView);

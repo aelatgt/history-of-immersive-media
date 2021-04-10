@@ -61,6 +61,7 @@ AFRAME.registerComponent('portal', {
         cubeMap: { value: null },
         time: { value: 0 },
         radius: { value: 0 },
+        ringColor: { value: new THREE.Color('dodgerblue') },
       },
       vertexShader,
       fragmentShader: `
@@ -68,6 +69,11 @@ AFRAME.registerComponent('portal', {
         ${fragmentShader}
       `,
     })
+
+    // Assume that the object has a plane geometry
+    const mesh = this.el.getOrCreateObject3D('mesh')
+    mesh.material = this.material
+
     this.el.setAttribute('animation__portal', {
       property: 'components.portal.material.uniforms.radius.value',
       dur: 700,
@@ -81,10 +87,6 @@ AFRAME.registerComponent('portal', {
     this.cubeCamera.rotateY(Math.PI) // Face forwards
     this.el.object3D.add(this.cubeCamera)
     this.other.components.portal.material.uniforms.cubeMap.value = this.cubeCamera.renderTarget.texture
-
-    const geometry = new THREE.PlaneBufferGeometry(2, 3)
-    this.mesh = new THREE.Mesh(geometry, this.material)
-    this.el.setObject3D('mesh', this.mesh)
 
     this.el.sceneEl.addEventListener('model-loaded', () => {
       this.cubeCamera.update(this.el.sceneEl.renderer, this.el.sceneEl.object3D)
