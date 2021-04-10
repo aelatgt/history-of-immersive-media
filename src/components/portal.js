@@ -12,6 +12,7 @@
  * you could name them "portal-to__panorama" and "portal-from__panorama"
  */
 
+import './proximity-events.js'
 import vertexShader from '../shaders/portal.vert.js'
 import fragmentShader from '../shaders/portal.frag.js'
 import snoise from '../shaders/snoise.js'
@@ -72,6 +73,8 @@ AFRAME.registerComponent('portal', {
       dur: 700,
       easing: 'easeInOutCubic',
     })
+    this.el.addEventListener('animationbegin', () => (this.el.object3D.visible = true))
+    this.el.addEventListener('animationcomplete__portal', () => (this.el.object3D.visible = !this.isClosed()))
     this.other = await this.getOther()
 
     this.cubeCamera = new THREE.CubeCamera(1, 100000, 1024)
@@ -85,8 +88,10 @@ AFRAME.registerComponent('portal', {
 
     this.el.sceneEl.addEventListener('model-loaded', () => {
       this.cubeCamera.update(this.el.sceneEl.renderer, this.el.sceneEl.object3D)
-      this.other.components.portal.open()
     })
+    this.el.setAttribute('proximity-events', { radius: 7 })
+    this.el.addEventListener('proximityenter', () => this.open())
+    this.el.addEventListener('proximityleave', () => this.close())
   },
   tick: function (time) {
     this.material.uniforms.time.value = time / 1000
@@ -130,5 +135,8 @@ AFRAME.registerComponent('portal', {
   },
   close() {
     this.setRadius(0)
+  },
+  isClosed() {
+    return this.material.uniforms.radius.value === 0
   },
 })
