@@ -18,6 +18,39 @@ const worldDir = new THREE.Vector3()
 const worldQuat = new THREE.Quaternion()
 const mat4 = new THREE.Matrix4()
 
+const PortalShader = {
+  uniforms: {
+    cubeMap: { value: null }
+  },
+  vertexShader: `
+    varying vec3 vCameraPosition;
+    varying vec3 vPosition;
+    varying vec3 vNormal;
+
+    void main() {
+      vec4 worldPosH = modelMatrix * vec4(position, 1);
+      vCameraPosition = cameraPosition;
+      vPosition = worldPosH.xyz / worldPosH.w;
+      vNormal = normal;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1);
+    }
+  `,
+  fragmentShader: `
+    uniform samplerCube cubeMap;
+
+    varying vec3 vCameraPosition;
+    varying vec3 vPosition;
+    varying vec3 vNormal;
+
+    void main() {
+      vec3 dir = normalize(vPosition - vCameraPosition);
+      dir = mix(dir, vNormal, 0.3);
+      gl_FragColor = textureCube(cubeMap, dir);
+    }
+  `
+}
+
+
 AFRAME.registerSystem('portal', {
   dependencies: ['fader-plus'],
   init: function () {
@@ -52,12 +85,69 @@ AFRAME.registerComponent('portal', {
     this.other = await this.getOther()
 
     // TODO: Replace this visualization with camera and shader setup
-    this.el.setAttribute('geometry', { primitive: 'dodecahedron' })
-    this.el.setAttribute('material', { wireframe: true })
-    const axesHelper = new THREE.AxesHelper()
-    this.el.object3D.add(axesHelper)
+    // Create render target (contains cube texture) and cube camera
+    this.cubeRenderTarget = new THREE.WebGLRenderTargetCube(1024)
+    this.cubeCamera = new THREE.CubeCamera(1, 100000, this.cubeRenderTarget)
+
+    // Attach cube camera to object
+    this.el.object3D.add(this.cubeCamera)
+
+    // Flag that we need to update the cube camera
+    this.needsUpdate = true
+
+    // Create material
+    const material = new THREE.ShaderMaterial(PortalShader)
+    material.uniforms.cubeMap.value = this.cubeRenderTarget.texture
+
+    // getOrCreateObject3D is deprecated, so below is commented out
+    //this.el.getOrCreateObject3D('mesh').material = material
+
+    // Create geometry.
+    this.geometry = new THREE.SphereBufferGeometry(10, 10, 0);
+
+    // Create mesh.
+    this.mesh = new THREE.Mesh(this.geometry, material);
+
+    // Set mesh on material
+    this.el.setObject3D("mesh", this.mesh)
+
+    // TO DO: Make this pretty
+    this.ring = document.createElement('a-sphere')
+    this.ring.setAttribute('radius', '1.3')
+    this.ring.setAttribute('color', 'black')
+    this.ring.setAttribute('side', 'back')
+    this.ring.setAttribute('shader', 'flat')
+    this.ring.setAttribute('visible', false)
+    this.el.appendChild(this.ring)
+
+    // The user's avatar always first in the list of "networked-avatar"s regardless of if
+    // they were the first ones to join the Hubs room
+    const activeAvatar = document.querySelector("[networked-avatar]")
+    // console.log(activeAvatar)
+    this.avatarPos = activeAvatar.object3D.getWorldPosition();
+
+    // This is just to see if I'm even loading the portal correctly
+    console.log("Here I am in the portal init!")
+
+
   },
   tick: async function () {
+    // Need to query AFTER avatar is networked; the below query statement needs
+    // to be removed before the final version is implemented
+    const activeAvatar = document.querySelector("[networked-avatar]")
+    this.avatarPos = activeAvatar.object3D.getWorldPosition();
+
+    // On the first frame only, update the camera view AND find the matched destination portal
+    if (this.needsUpdate){
+      // Make sure cubeCamera position to match that of portals
+      this.cubeCamera.position.copy(this.el.object3D.getWorldPosition())
+
+      this.cubeCamera.update( this.el.sceneEl.renderer, this.el.sceneEl.object3D )
+      this.ring.setAttribute('visible', true)
+
+      this.needsUpdate = false
+    }
+
     if (this.other && !this.system.teleporting) {
       this.el.object3D.getWorldPosition(worldPos)
       this.el.sceneEl.camera.getWorldPosition(worldCameraPos)
@@ -67,6 +157,7 @@ AFRAME.registerComponent('portal', {
       }
     }
   },
+
   getOther: function () {
     return new Promise((resolve) => {
       const portals = Array.from(document.querySelectorAll(`[portal]`))
