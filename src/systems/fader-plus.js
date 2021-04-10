@@ -7,13 +7,14 @@ AFRAME.registerSystem('fader-plus', {
   schema: {
     direction: { type: 'string', default: 'none' }, // "in", "out", or "none"
     duration: { type: 'number', default: 200 }, // Transition duration in milliseconds
+    color: { type: 'color', default: 'white' },
   },
 
   init() {
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(),
       new THREE.MeshBasicMaterial({
-        color: 0x0,
+        color: this.data.color,
         side: THREE.BackSide,
         opacity: 0,
         transparent: true,
@@ -23,6 +24,7 @@ AFRAME.registerSystem('fader-plus', {
     mesh.scale.x = mesh.scale.y = 1
     mesh.scale.z = 0.15
     mesh.matrixNeedsUpdate = true
+    mesh.renderOrder = 1 // render after other transparent stuff
     this.el.camera.add(mesh)
     this.mesh = mesh
   },

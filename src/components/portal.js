@@ -36,7 +36,7 @@ AFRAME.registerSystem('portal', {
     object.getWorldQuaternion(worldQuat)
     object.getWorldDirection(worldDir)
     object.getWorldPosition(worldPos)
-    worldPos.add(worldDir) // Teleport in front of the portal to avoid infinite loop
+    worldPos.add(worldDir.multiplyScalar(1.5)) // Teleport in front of the portal to avoid infinite loop
     mat4.makeRotationFromQuaternion(worldQuat)
     mat4.setPosition(worldPos)
     // Using the characterController ensures we don't stray from the navmesh
@@ -55,6 +55,7 @@ AFRAME.registerComponent('portal', {
     this.group = this.data.group ?? this.parseSpokeName()
     this.material = new THREE.ShaderMaterial({
       transparent: true,
+      side: THREE.DoubleSide,
       uniforms: {
         cubeMap: { value: null },
         time: { value: 0 },
@@ -93,7 +94,7 @@ AFRAME.registerComponent('portal', {
       this.el.object3D.getWorldPosition(worldPos)
       this.el.sceneEl.camera.getWorldPosition(worldCameraPos)
       const dist = worldCameraPos.distanceTo(worldPos)
-      if (dist < 0.5) {
+      if (dist < 1) {
         this.system.teleportTo(this.other.object3D)
       }
     }

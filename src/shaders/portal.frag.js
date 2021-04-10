@@ -15,7 +15,7 @@ varying vec3 vNormal;
 
 void main() {
   vec2 coord = vUv * 2.0 - 1.0;
-  float noise = snoise(vec3(coord * 1., time * 0.5)) * 0.5 + 0.5;
+  float noise = snoise(vec3(coord * 1., time)) * 0.5 + 0.5;
 
   // Polar distance
   float dist = length(coord);
