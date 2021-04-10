@@ -20,7 +20,7 @@ const mat4 = new THREE.Matrix4()
 
 const PortalShader = {
   uniforms: {
-    cubeMap: { value: null }
+    cubeMap: { value: null },
   },
   vertexShader: `
     varying vec3 vCameraPosition;
@@ -47,9 +47,8 @@ const PortalShader = {
       dir = mix(dir, vNormal, 0.3);
       gl_FragColor = textureCube(cubeMap, dir);
     }
-  `
+  `,
 }
-
 
 AFRAME.registerSystem('portal', {
   dependencies: ['fader-plus'],
@@ -82,72 +81,35 @@ AFRAME.registerComponent('portal', {
   init: async function () {
     this.system = APP.scene.systems.portal // A-Frame is supposed to do this by default but doesn't?
     this.group = this.data.group ?? this.parseSpokeName()
+    this.material = new THREE.MeshStandardMaterial({
+      metalness: 1,
+      roughness: 0,
+    })
     this.other = await this.getOther()
 
-    // TODO: Replace this visualization with camera and shader setup
-    // Create render target (contains cube texture) and cube camera
-    this.cubeRenderTarget = new THREE.WebGLRenderTargetCube(1024)
-    this.cubeCamera = new THREE.CubeCamera(1, 100000, this.cubeRenderTarget)
+    this.cubeCamera = new THREE.CubeCamera(1, 100000, 1024)
 
     // Attach cube camera to object
     this.el.object3D.add(this.cubeCamera)
 
-    // Flag that we need to update the cube camera
-    this.needsUpdate = true
-
     // Create material
-    const material = new THREE.ShaderMaterial(PortalShader)
-    material.uniforms.cubeMap.value = this.cubeRenderTarget.texture
+    this.other.components.portal.material.envMap = this.cubeCamera.renderTarget.texture
+    this.other.components.portal.material.needsUpdate = true
 
-    // getOrCreateObject3D is deprecated, so below is commented out
-    //this.el.getOrCreateObject3D('mesh').material = material
+    this.el.sceneEl.addEventListener('model-loaded', () => {
+      this.cubeCamera.update(this.el.sceneEl.renderer, this.el.sceneEl.object3D)
+    })
 
     // Create geometry.
-    this.geometry = new THREE.SphereBufferGeometry(10, 10, 0);
+    const geometry = new THREE.SphereBufferGeometry(1, 18, 36)
 
     // Create mesh.
-    this.mesh = new THREE.Mesh(this.geometry, material);
+    this.mesh = new THREE.Mesh(geometry, this.material)
 
     // Set mesh on material
-    this.el.setObject3D("mesh", this.mesh)
-
-    // TO DO: Make this pretty
-    this.ring = document.createElement('a-sphere')
-    this.ring.setAttribute('radius', '1.3')
-    this.ring.setAttribute('color', 'black')
-    this.ring.setAttribute('side', 'back')
-    this.ring.setAttribute('shader', 'flat')
-    this.ring.setAttribute('visible', false)
-    this.el.appendChild(this.ring)
-
-    // The user's avatar always first in the list of "networked-avatar"s regardless of if
-    // they were the first ones to join the Hubs room
-    const activeAvatar = document.querySelector("[networked-avatar]")
-    // console.log(activeAvatar)
-    this.avatarPos = activeAvatar.object3D.getWorldPosition();
-
-    // This is just to see if I'm even loading the portal correctly
-    console.log("Here I am in the portal init!")
-
-
+    this.el.setObject3D('mesh', this.mesh)
   },
-  tick: async function () {
-    // Need to query AFTER avatar is networked; the below query statement needs
-    // to be removed before the final version is implemented
-    const activeAvatar = document.querySelector("[networked-avatar]")
-    this.avatarPos = activeAvatar.object3D.getWorldPosition();
-
-    // On the first frame only, update the camera view AND find the matched destination portal
-    if (this.needsUpdate){
-      // Make sure cubeCamera position to match that of portals
-      this.cubeCamera.position.copy(this.el.object3D.getWorldPosition())
-
-      this.cubeCamera.update( this.el.sceneEl.renderer, this.el.sceneEl.object3D )
-      this.ring.setAttribute('visible', true)
-
-      this.needsUpdate = false
-    }
-
+  tick: function () {
     if (this.other && !this.system.teleporting) {
       this.el.object3D.getWorldPosition(worldPos)
       this.el.sceneEl.camera.getWorldPosition(worldCameraPos)
@@ -157,7 +119,6 @@ AFRAME.registerComponent('portal', {
       }
     }
   },
-
   getOther: function () {
     return new Promise((resolve) => {
       const portals = Array.from(document.querySelectorAll(`[portal]`))
