@@ -9,7 +9,7 @@
  * https://gt-ael-aq-assets.aelatgt-internal.net/files/12345abc-6789def.jpg
  *
  * The name of the `immersive-360.glb` instance in the scene should be:
- * "some-descriptive-label__12345abc-6789def" OR "12345abc-6789def"
+ * "some-descriptive-label__12345abc-6789def_jpg" OR "12345abc-6789def_jpg"
  */
 
 const worldCamera = new THREE.Vector3()
@@ -44,10 +44,10 @@ AFRAME.registerComponent('immersive-360', {
     this.el.components.material.material.opacity = opacity
   },
   parseSpokeName: function () {
-    // Accepted names: "label__image-hash" OR "image-hash"
+    // Accepted names: "label__image-hash_ext" OR "image-hash_ext"
     const spokeName = this.el.parentEl.parentEl.className
-    const hash = spokeName.match(/(?:.*__)?(.*)/)[1]
-    const url = `https://gt-ael-aq-assets.aelatgt-internal.net/files/${hash}.jpg`
+    const [, hash, extension] = spokeName.match(/(?:.*__)?(.*)_(.*)/)[1]
+    const url = `https://gt-ael-aq-assets.aelatgt-internal.net/files/${hash}.${extension}`
     return url
   },
 })
