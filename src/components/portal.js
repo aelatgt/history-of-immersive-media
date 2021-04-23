@@ -1,15 +1,17 @@
 /**
  * Description
  * ===========
- * Bidirectional see-through portal. Two portals can be paired using a shared group name.
+ * Bidirectional see-through portal. Two portals are paired by color.
  *
  * Usage
  * =======
  * Add two instances of `portal.glb` to the Spoke scene.
- * The name of each instance should look like "some-descriptive-label__group-name"
+ * The name of each instance should look like "some-descriptive-label__color"
+ * Any valid THREE.Color argument is a valid color value.
+ * See here for example color names https://www.w3schools.com/cssref/css_colors.asp
  *
- * For example, to make a pair of portals to/from the panorama area,
- * you could name them "portal-to__panorama" and "portal-from__panorama"
+ * For example, to make a pair of connected blue portals,
+ * you could name them "portal-to__blue" and "portal-from__blue"
  */
 
 import './proximity-events.js'
@@ -49,11 +51,10 @@ AFRAME.registerSystem('portal', {
 
 AFRAME.registerComponent('portal', {
   schema: {
-    group: { type: 'string', default: null },
+    color: { type: 'color', default: null },
   },
   init: async function () {
     this.system = APP.scene.systems.portal // A-Frame is supposed to do this by default but doesn't?
-    this.group = this.data.group ?? this.parseSpokeName()
     this.material = new THREE.ShaderMaterial({
       transparent: true,
       side: THREE.DoubleSide,
@@ -61,7 +62,7 @@ AFRAME.registerComponent('portal', {
         cubeMap: { value: null },
         time: { value: 0 },
         radius: { value: 0 },
-        ringColor: { value: new THREE.Color('dodgerblue') },
+        ringColor: { value: this.getColor() },
       },
       vertexShader,
       fragmentShader: `
@@ -109,7 +110,7 @@ AFRAME.registerComponent('portal', {
   getOther: function () {
     return new Promise((resolve) => {
       const portals = Array.from(document.querySelectorAll(`[portal]`))
-      const other = portals.find((el) => el.getAttribute('portal').group === this.data.group && el !== this.el)
+      const other = portals.find((el) => el.components.portal.getColor().equals(this.getColor()) && el !== this.el)
       if (other !== undefined) {
         // Case 1: The other portal already exists
         resolve(other)
@@ -120,11 +121,15 @@ AFRAME.registerComponent('portal', {
       }
     })
   },
+  getColor: function () {
+    if (this.color) return this.color
+    this.color = new THREE.Color(this.data.color ?? this.parseSpokeName())
+    return this.color
+  },
   parseSpokeName: function () {
-    // Accepted names: "label__group" OR "group"
     const spokeName = this.el.parentEl.parentEl.className
-    const group = spokeName.match(/(?:.*__)?(.*)/)[1]
-    return group
+    const color = spokeName.match(/(?:.*__)?(.*)/)[1] // e.g. "label__color"
+    return color
   },
   setRadius(val) {
     this.el.setAttribute('animation__portal', {
