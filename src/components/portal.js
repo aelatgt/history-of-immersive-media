@@ -84,7 +84,8 @@ AFRAME.registerComponent('portal', {
     this.el.addEventListener('animationcomplete__portal', () => (this.el.object3D.visible = !this.isClosed()))
     this.other = await this.getOther()
 
-    this.cubeCamera = new THREE.CubeCamera(1, 100000, 1024)
+    const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(1024, { encoding: THREE.sRGBEncoding, generateMipmaps: true })
+    this.cubeCamera = new THREE.CubeCamera(1, 100000, cubeRenderTarget)
     this.cubeCamera.rotateY(Math.PI) // Face forwards
     this.el.object3D.add(this.cubeCamera)
     this.other.components.portal.material.uniforms.cubeMap.value = this.cubeCamera.renderTarget.texture
